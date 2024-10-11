@@ -1,0 +1,46 @@
+library(readr)
+library(readxl)
+library(stringr)
+library(lubridate)
+library(dplyr)
+library(yardstick)
+
+data <- read.csv2("car_insurance.csv", sep = ",")
+names(data) <- sub('^X.', '', names(data))
+summary(data)
+data <- data %>% select(-id)
+missing_columns <- c('credit_score', 'annual_mileage')
+data$credit_score <- as.numeric(data$credit_score)
+data$credit_score <- as.numeric(data$credit_score)
+data$vehicle_ownership <- as.factor(as.numeric(data$vehicle_ownership))
+data$married <- as.factor(as.numeric(data$married))
+data$children <- as.numeric(data$children)
+data$annual_mileage <- as.numeric(data$annual_mileage)
+data$outcome <- as.factor(as.numeric(data$outcome))
+data$vehicle_ownership <- ifelse(data$vehicle_ownership == 1, 0, data$vehicle_ownership)
+data$vehicle_ownership <- ifelse(data$vehicle_ownership == 2, 1, data$vehicle_ownership)
+data$married <- ifelse(data$married == 1, 0, data$married)
+data$married <- ifelse(data$married == 2, 1, data$married)
+data$outcome <- ifelse(data$outcome == 1, 0, data$outcome)
+data$outcome <- ifelse(data$outcome == 2, 1, data$outcome)
+
+
+for (col in missing_columns) {
+  data[[col]] <- ifelse(is.na(data[[col]]), median(data[[col]], na.rm = TRUE), data[[col]])
+}
+
+variables <- data %>% select(-outcome)
+variables <- colnames(variables)
+
+
+variables_df <- data.frame(Variable = character(), Accuracy = numeric(), stringsAsFactors = FALSE)
+
+for (col in names(variables)) {
+    model <- glm(glue::glue("outcome ~ {col}"), data = data, family = binomial())
+    predicts <- predict(model, type = "response")
+    accuracy <- mean(predicts >= 0.5)  # Assuming 0.5 threshold for binary classification
+    variables_df <- rbind(variables_df, data.frame(Variable = col, Accuracy = accuracy, stringsAsFactors = FALSE))
+  }
+
+print(variables_df)
+top_1 <- variables_df %>% arrange(desc(Accuracy)) %>% head(n = 1)
